@@ -1,14 +1,18 @@
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useThemeStore } from '../../stores/useThemeStore';
+import { ACCENT } from '../../lib/theme';
 
 export default function TabsLayout() {
+  const { theme } = useThemeStore();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#1a1a1a",
-          borderTopColor: "#2a2a2a",
+          backgroundColor: theme.tabBar,
+          borderTopColor: theme.tabBarBorder,
           height: 64,
           paddingBottom: 8,
         },
@@ -19,7 +23,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="library" size={24} color={focused ? "#f59e0b" : "#666"} />
+            <Ionicons name="library" size={24} color={focused ? ACCENT : theme.textMuted} />
           ),
         }}
       />
@@ -27,7 +31,7 @@ export default function TabsLayout() {
         name="settings"
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="settings-outline" size={24} color={focused ? "#f59e0b" : "#666"} />
+            <Ionicons name="settings-outline" size={24} color={focused ? ACCENT : theme.textMuted} />
           ),
         }}
       />
