@@ -9,7 +9,21 @@
       "Bash(ipconfig getifaddr *)",
       "Bash(awk '{print $2}')",
       "Bash(curl -s http://localhost:3001/health)",
-      "Bash(pip3 list *)"
+      "Bash(pip3 list *)",
+      "Bash(pip3 install *)",
+      "Bash(redis-cli keys *)",
+      "Bash(redis-cli lrange *)",
+      "Bash(redis-cli hgetall *)",
+      "Bash(python3 -m venv /Users/dwaine/Projects/audiobookreader/services/tts-worker/.venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(pip3 index *)",
+      "Bash(pip3 show *)",
+      "Bash(pip3 download *)",
+      "Bash(brew list *)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(python3.11 -m venv .venv)",
+      "Bash(supabase status *)",
+      "Bash(.venv/bin/python3.11 -c \"from kokoro import KPipeline; import redis; from supabase import create_client; print\\('imports ok'\\)\")"
     ]
   }
 }

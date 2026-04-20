@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# API
+services/api/dist/
+
+# TTS worker
+services/tts-worker/.venv/
+services/tts-worker/__pycache__/
+*.pyc
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
