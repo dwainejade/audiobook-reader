@@ -39,6 +39,8 @@ export default function AuthScreen() {
       Alert.alert('Error', error);
     } else if (mode === 'signup') {
       Alert.alert('Check your email', 'We sent you a confirmation link.');
+    } else {
+      router.replace('/(tabs)');
     }
   };
 

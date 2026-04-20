@@ -1,7 +1,9 @@
-import { View, Text, Switch, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Switch, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useThemeStore } from '../../stores/useThemeStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { ACCENT } from '../../lib/theme';
 
 function Row({
@@ -37,6 +39,22 @@ const row = StyleSheet.create({
 
 export default function SettingsScreen() {
   const { theme, isDark, toggle } = useThemeStore();
+  const { signOut } = useAuthStore();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    Alert.alert('Sign Out', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)');
+        },
+      },
+    ]);
+  }
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]} edges={['top']}>
@@ -79,7 +97,7 @@ export default function SettingsScreen() {
       <View style={[s.section, { backgroundColor: theme.bg }]}>
         <Text style={[s.sectionLabel, { color: theme.textMuted }]}>ACCOUNT</Text>
 
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleSignOut}>
           <Row
             icon="log-out-outline"
             label="Sign Out"

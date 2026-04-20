@@ -16,6 +16,11 @@ create table if not exists books (
 -- Row-level security: users only see their own books
 alter table books enable row level security;
 
+drop policy if exists "users can read own books" on books;
+drop policy if exists "users can insert own books" on books;
+drop policy if exists "users can update own books" on books;
+drop policy if exists "users can delete own books" on books;
+
 create policy "users can read own books"
   on books for select using (auth.uid() = user_id);
 
@@ -27,3 +32,14 @@ create policy "users can update own books"
 
 create policy "users can delete own books"
   on books for delete using (auth.uid() = user_id);
+
+-- Enable realtime (safe to run multiple times)
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'books'
+  ) then
+    alter publication supabase_realtime add table books;
+  end if;
+end $$;
