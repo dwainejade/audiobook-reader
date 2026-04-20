@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,26 +6,26 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import { useThemeStore } from '../stores/useThemeStore';
-import { useAuthStore } from '../stores/useAuthStore';
-import { ACCENT, ACCENT_DIM } from '../lib/theme';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { useThemeStore } from "../stores/useThemeStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import { ACCENT, ACCENT_DIM } from "../lib/theme";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type Stage = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
+type Stage = "idle" | "uploading" | "processing" | "done" | "error";
 
 export default function UploadScreen() {
   const router = useRouter();
   const { theme, isDark } = useThemeStore();
   const { session } = useAuthStore();
 
-  const [stage, setStage] = useState<Stage>('idle');
+  const [stage, setStage] = useState<Stage>("idle");
   const [fileName, setFileName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookTitle, setBookTitle] = useState<string | null>(null);
@@ -34,12 +34,20 @@ export default function UploadScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (stage === 'processing') {
+    if (stage === "processing") {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
+          Animated.timing(pulseAnim, {
+            toValue: 0.4,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
       ).start();
     } else {
       pulseAnim.stopAnimation();
@@ -52,7 +60,7 @@ export default function UploadScreen() {
     setUploadProgress(0);
 
     const result = await DocumentPicker.getDocumentAsync({
-      type: 'application/epub+zip',
+      type: "application/epub+zip",
       copyToCacheDirectory: true,
     });
 
@@ -60,52 +68,103 @@ export default function UploadScreen() {
 
     const asset = result.assets[0];
     setFileName(asset.name);
-    setStage('uploading');
+    setStage("uploading");
 
     try {
       const token = session?.access_token;
-      if (!token) throw new Error('Not authenticated');
+      if (!token) throw new Error("Not authenticated");
 
       const uploadResult = await FileSystem.uploadAsync(
         `${API_URL}/api/books/upload`,
         asset.uri,
         {
-          httpMethod: 'POST',
+          httpMethod: "POST",
           uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-          fieldName: 'epub',
-          mimeType: 'application/epub+zip',
+          fieldName: "epub",
+          mimeType: "application/epub+zip",
           headers: { Authorization: `Bearer ${token}` },
           sessionType: FileSystem.FileSystemSessionType.FOREGROUND,
-        }
+        },
       );
 
       if (uploadResult.status !== 201) {
         const body = JSON.parse(uploadResult.body);
-        throw new Error(body.error ?? 'Upload failed');
+        throw new Error(body.error ?? "Upload failed");
       }
 
       const book = JSON.parse(uploadResult.body);
       setBookTitle(book.title);
-      setStage('processing');
+
+      // Wait for background processing to complete and chapters to be available
+      setStage("processing");
+
+      let retryCount = 0;
+      const maxRetries = 30; // 30 seconds max
+
+      // Poll for chapters to be ready
+      const checkChapters = async () => {
+        retryCount++;
+
+        try {
+          const token = session?.access_token;
+          const res = await fetch(`${API_URL}/api/books/${book.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.chapters && data.chapters.length > 0) {
+              console.log(
+                `Book ready after ${retryCount} checks, ${data.chapters.length} chapters`,
+              );
+              setStage("done");
+              return;
+            }
+          }
+
+          if (retryCount >= maxRetries) {
+            console.log(
+              `Giving up after ${maxRetries} checks, assuming book is ready anyway`,
+            );
+            setStage("done");
+            return;
+          }
+        } catch (e) {
+          console.log(`Check ${retryCount} failed:`, e);
+          if (retryCount >= maxRetries) {
+            console.log(`Giving up after ${maxRetries} failed checks`);
+            setStage("done");
+            return;
+          }
+        }
+
+        // Check again in 1 second
+        setTimeout(checkChapters, 1000);
+      };
+
+      checkChapters();
     } catch (e: any) {
-      console.error('Upload error:', e);
-      setErrorMsg(e.message ?? 'Something went wrong');
-      setStage('error');
+      console.error("Upload error:", e);
+      setErrorMsg(e.message ?? "Something went wrong");
+      setStage("error");
     }
   }
 
   function goToLibrary() {
-    router.replace('/(tabs)/');
+    router.replace("/(tabs)/");
   }
 
   function retry() {
-    setStage('idle');
+    setStage("idle");
     setFileName(null);
     setErrorMsg(null);
   }
 
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[s.safe, { backgroundColor: theme.bg }]}
+      edges={["top", "bottom"]}
+    >
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
@@ -116,16 +175,23 @@ export default function UploadScreen() {
       </View>
 
       <View style={s.body}>
-        {stage === 'idle' && (
+        {stage === "idle" && (
           <>
             <TouchableOpacity
-              style={[s.dropZone, { borderColor: ACCENT, backgroundColor: ACCENT_DIM }]}
+              style={[
+                s.dropZone,
+                { borderColor: ACCENT, backgroundColor: ACCENT_DIM },
+              ]}
               activeOpacity={0.7}
               onPress={pickAndUpload}
             >
               <Ionicons name="book-outline" size={48} color={ACCENT} />
-              <Text style={[s.dropTitle, { color: theme.text }]}>Select an EPUB file</Text>
-              <Text style={[s.dropSub, { color: theme.textMuted }]}>Tap to browse your files</Text>
+              <Text style={[s.dropTitle, { color: theme.text }]}>
+                Select an EPUB file
+              </Text>
+              <Text style={[s.dropSub, { color: theme.textMuted }]}>
+                Tap to browse your files
+              </Text>
             </TouchableOpacity>
             <Text style={[s.hint, { color: theme.textMuted }]}>
               Max file size: 50 MB
@@ -133,27 +199,34 @@ export default function UploadScreen() {
           </>
         )}
 
-        {stage === 'uploading' && (
+        {stage === "uploading" && (
           <View style={s.stateBox}>
             <ActivityIndicator size="large" color={ACCENT} />
-            <Text style={[s.stateTitle, { color: theme.text }]}>Uploading…</Text>
-            <Text style={[s.stateSub, { color: theme.textMuted }]} numberOfLines={1}>
+            <Text style={[s.stateTitle, { color: theme.text }]}>
+              Uploading…
+            </Text>
+            <Text
+              style={[s.stateSub, { color: theme.textMuted }]}
+              numberOfLines={1}
+            >
               {fileName}
             </Text>
           </View>
         )}
 
-        {stage === 'processing' && (
+        {stage === "processing" && (
           <View style={s.stateBox}>
             <Animated.View style={{ opacity: pulseAnim }}>
               <Ionicons name="musical-notes" size={56} color={ACCENT} />
             </Animated.View>
-            <Text style={[s.stateTitle, { color: theme.text }]}>Generating audio…</Text>
+            <Text style={[s.stateTitle, { color: theme.text }]}>
+              Processing book…
+            </Text>
             {bookTitle && (
               <Text style={[s.bookName, { color: ACCENT }]}>{bookTitle}</Text>
             )}
             <Text style={[s.stateSub, { color: theme.textMuted }]}>
-              Chapters will appear in your library as they finish.
+              Parsing text and preparing chapters.
             </Text>
             <TouchableOpacity
               style={[s.btn, { backgroundColor: ACCENT, marginTop: 32 }]}
@@ -165,11 +238,37 @@ export default function UploadScreen() {
           </View>
         )}
 
-        {stage === 'error' && (
+        {stage === "done" && (
+          <View style={s.stateBox}>
+            <Ionicons name="checkmark-circle" size={56} color="#10b981" />
+            <Text style={[s.stateTitle, { color: theme.text }]}>
+              Book ready!
+            </Text>
+            {bookTitle && (
+              <Text style={[s.bookName, { color: "#10b981" }]}>
+                {bookTitle}
+              </Text>
+            )}
+            <Text style={[s.stateSub, { color: theme.textMuted }]}>
+              Text has been parsed and is ready to read.
+            </Text>
+            <TouchableOpacity
+              style={[s.btn, { backgroundColor: "#10b981", marginTop: 32 }]}
+              onPress={goToLibrary}
+              activeOpacity={0.8}
+            >
+              <Text style={s.btnText}>Go to Library</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {stage === "error" && (
           <View style={s.stateBox}>
             <Ionicons name="alert-circle-outline" size={56} color="#ef4444" />
-            <Text style={[s.stateTitle, { color: theme.text }]}>Upload failed</Text>
-            <Text style={[s.stateSub, { color: '#ef4444' }]}>{errorMsg}</Text>
+            <Text style={[s.stateTitle, { color: theme.text }]}>
+              Upload failed
+            </Text>
+            <Text style={[s.stateSub, { color: "#ef4444" }]}>{errorMsg}</Text>
             <TouchableOpacity
               style={[s.btn, { backgroundColor: ACCENT, marginTop: 32 }]}
               onPress={retry}
@@ -187,29 +286,44 @@ export default function UploadScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  title: { fontSize: 17, fontWeight: '700' },
-  body: { flex: 1, paddingHorizontal: 24, justifyContent: 'center', paddingBottom: 60 },
+  title: { fontSize: 17, fontWeight: "700" },
+  body: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    paddingBottom: 60,
+  },
   dropZone: {
     borderWidth: 2,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 20,
     paddingVertical: 52,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 12,
   },
-  dropTitle: { fontSize: 18, fontWeight: '700', marginTop: 4 },
+  dropTitle: { fontSize: 18, fontWeight: "700", marginTop: 4 },
   dropSub: { fontSize: 14 },
-  hint: { fontSize: 12, textAlign: 'center', marginTop: 16 },
-  stateBox: { alignItems: 'center', gap: 12 },
-  stateTitle: { fontSize: 20, fontWeight: '700', marginTop: 8 },
-  bookName: { fontSize: 16, fontWeight: '600' },
-  stateSub: { fontSize: 14, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
-  btn: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40, alignItems: 'center' },
-  btnText: { fontSize: 16, fontWeight: '700', color: '#000' },
+  hint: { fontSize: 12, textAlign: "center", marginTop: 16 },
+  stateBox: { alignItems: "center", gap: 12 },
+  stateTitle: { fontSize: 20, fontWeight: "700", marginTop: 8 },
+  bookName: { fontSize: 16, fontWeight: "600" },
+  stateSub: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  btn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    alignItems: "center",
+  },
+  btnText: { fontSize: 16, fontWeight: "700", color: "#000" },
 });

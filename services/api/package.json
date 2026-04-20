@@ -2,7 +2,7 @@
   "name": "api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
@@ -14,11 +14,13 @@
   "type": "commonjs",
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3",
+    "@types/he": "^1.2.3",
     "bullmq": "^5.74.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "epub2": "^3.0.2",
     "express": "^5.2.1",
+    "he": "^1.2.0",
     "ioredis": "^5.10.1",
     "multer": "^2.1.1"
   },

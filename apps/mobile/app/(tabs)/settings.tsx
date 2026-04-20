@@ -59,6 +59,9 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={[s.header, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
+        </TouchableOpacity>
         <Text style={[s.title, { color: theme.text }]}>Settings</Text>
       </View>
 
@@ -114,11 +117,14 @@ export default function SettingsScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  title: { fontSize: 28, fontWeight: '800' },
+  title: { fontSize: 22, fontWeight: '700' },
   section: { paddingHorizontal: 20, marginTop: 24 },
   sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 4 },
   value: { fontSize: 15 },
