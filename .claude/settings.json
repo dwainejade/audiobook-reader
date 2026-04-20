@@ -3,7 +3,13 @@
     "allow": [
       "Bash(grep -E \"\\\\.\\(ts|js|json\\)$\")",
       "Bash(supabase --version)",
-      "Bash(npm init *)"
+      "Bash(npm init *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const fs = require\\('expo-file-system'\\); console.log\\(Object.keys\\(fs\\).filter\\(k => k.includes\\('Upload'\\) || k.includes\\('Session'\\) || k.includes\\('upload'\\)\\)\\)\")",
+      "Bash(ipconfig getifaddr *)",
+      "Bash(awk '{print $2}')",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(pip3 list *)"
     ]
   }
 }

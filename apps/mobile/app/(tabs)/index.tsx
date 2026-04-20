@@ -135,6 +135,7 @@ const cont = StyleSheet.create({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function LibraryScreen() {
+  const router = useRouter();
   const { theme, isDark } = useThemeStore();
   const { books, loading } = useBooks();
 
@@ -203,7 +204,7 @@ export default function LibraryScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={s.fab} activeOpacity={0.85}>
+      <TouchableOpacity style={s.fab} activeOpacity={0.85} onPress={() => router.push('/upload')}>
         <Ionicons name="add" size={32} color="#000" />
       </TouchableOpacity>
     </SafeAreaView>

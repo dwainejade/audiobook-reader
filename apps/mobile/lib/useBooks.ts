@@ -39,7 +39,7 @@ export function useBooks() {
 
     // Real-time updates
     subscription = supabase
-      .channel('books-changes')
+      .channel(`books-changes-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'books' }, () => {
         fetchBooks();
       })
