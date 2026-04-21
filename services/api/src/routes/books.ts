@@ -396,6 +396,7 @@ router.post("/upload", requireAuth, upload.single("epub"), async (req, res) => {
     console.log(`📚 Processing ${flow.length} flow items`);
     const chapterTexts: {
       index: number;
+      href: string;
       title: string;
       text: string;
       spans: FormatSpan[];
@@ -496,6 +497,7 @@ router.post("/upload", requireAuth, upload.single("epub"), async (req, res) => {
         console.log(`  [${flowItem.id}] KEPT as "${title}"`);
         chapterTexts.push({
           index: i,
+          href: flowItem.href ?? "",
           title,
           text,
           spans,
@@ -532,10 +534,11 @@ router.post("/upload", requireAuth, upload.single("epub"), async (req, res) => {
       `✅ Inserted ${chapters?.length || 0} chapters for book "${title}"`,
     );
 
-    // Store book-level TOC: ordered list of { title, chapterIndex } for the player
+    // Store book-level TOC: ordered list of { title, chapterIndex, href } for the player
     const bookToc = chapterTexts.map((ch, i) => ({
       title: ch.title,
       chapterIndex: i,
+      href: ch.href,
     }));
 
     const { error: bookUpdateError } = await supabase

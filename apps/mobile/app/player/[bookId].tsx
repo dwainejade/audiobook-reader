@@ -16,12 +16,14 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { useThemeStore } from "../../stores/useThemeStore";
-import EpubReader from "../../lib/EpubReader";
+import EpubReader, { type EpubReaderHandle } from "../../lib/EpubReader";
 import PlayerControls from "../../lib/PlayerControls";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { ACCENT } from "../../lib/theme";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
+
+type TocEntry = { title: string; chapterIndex: number; href?: string };
 
 type Chapter = {
   id: string;
@@ -36,23 +38,12 @@ type Chapter = {
   audio_url: string | null;
 };
 
-function formatTime(seconds: number) {
-  const s = Math.floor(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0)
-    return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  return `${m}:${String(sec).padStart(2, "0")}`;
-}
-
 export default function PlayerScreen() {
   const router = useRouter();
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
   const { theme, isDark, fontSize } = useThemeStore();
   const { session } = useAuthStore();
 
-  type TocEntry = { title: string; chapterIndex: number };
   const [book, setBook] = useState<{
     title: string;
     author: string;
@@ -66,6 +57,9 @@ export default function PlayerScreen() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1.0);
   const chapterDurations = useRef<Record<number, number>>({});
+  const epubReaderRef = useRef<EpubReaderHandle>(null);
+  const chapterIdxInitialized = useRef(false);
+  const spineHrefs = useRef<string[]>([]);
 
   const chapter = chapters[chapterIdx] ?? null;
 
@@ -114,6 +108,21 @@ export default function PlayerScreen() {
   useEffect(() => {
     if (chapter?.audio_url) player.replace({ uri: chapter.audio_url });
   }, [chapter?.id]);
+
+  useEffect(() => {
+    if (!chapterIdxInitialized.current) {
+      chapterIdxInitialized.current = true;
+      return;
+    }
+    const tocHref = book?.toc?.find((e) => e.chapterIndex === chapterIdx)?.href;
+    if (!tocHref) return;
+    // Match stored href (e.g. "ops/xhtml/ch01.html") against epub.js spine hrefs
+    // which may be shorter (e.g. "xhtml/ch01.html") — match by suffix
+    const epubHref = spineHrefs.current.find(
+      (h) => tocHref.endsWith(h) || h.endsWith(tocHref) || h === tocHref,
+    ) ?? tocHref;
+    epubReaderRef.current?.navigateTo(epubHref);
+  }, [chapterIdx, book]);
 
   useEffect(() => {
     player.setPlaybackRate(speed);
@@ -179,53 +188,6 @@ export default function PlayerScreen() {
     );
   }
 
-  if (!chapters.length) {
-    if (book.status !== "done") {
-      return (
-        <View
-          style={[
-            s.root,
-            {
-              backgroundColor: theme.bg,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-            },
-          ]}
-        >
-          <ActivityIndicator color={ACCENT} />
-          <Text style={{ color: theme.text, fontSize: 17, fontWeight: "700" }}>
-            {book.title}
-          </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 14 }}>
-            Generating audio… check back soon.
-          </Text>
-        </View>
-      );
-    } else {
-      return (
-        <View
-          style={[
-            s.root,
-            {
-              backgroundColor: theme.bg,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-            },
-          ]}
-        >
-          <Text style={{ color: theme.text, fontSize: 17, fontWeight: "700" }}>
-            {book.title}
-          </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 14 }}>
-            No readable content found in this book.
-          </Text>
-        </View>
-      );
-    }
-  }
-
   return (
     <View style={[s.root, { backgroundColor: theme.bg }]}>
       <StatusBar
@@ -246,10 +208,12 @@ export default function PlayerScreen() {
 
         {book.epub_url ? (
           <EpubReader
+            ref={epubReaderRef}
             epubUrl={book.epub_url}
             fontSize={fontSize}
             textColor={theme.text}
             bg={theme.bg}
+            onSpineReady={(hrefs) => { spineHrefs.current = hrefs; }}
           />
         ) : (
           <View style={s.scroll}>

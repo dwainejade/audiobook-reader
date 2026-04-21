@@ -14,7 +14,7 @@ import { ACCENT } from "./theme";
 
 const SPEEDS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
-export type TocEntry = { title: string; chapterIndex: number };
+export type TocEntry = { title: string; chapterIndex: number; href?: string };
 
 type Props = {
   positionSec: number;

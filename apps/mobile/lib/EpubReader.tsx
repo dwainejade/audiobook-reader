@@ -1,7 +1,18 @@
-import React, { useRef, useCallback, useEffect, useState } from "react";
+import React, {
+  useRef,
+  useCallback,
+  useEffect,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import { View, StyleSheet, Text } from "react-native";
 import { WebView } from "react-native-webview";
 import { cacheDirectory, getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
+
+export type EpubReaderHandle = {
+  navigateTo: (href: string) => void;
+};
 
 type Props = {
   epubUrl: string;
@@ -9,6 +20,7 @@ type Props = {
   textColor: string;
   bg: string;
   onLocationChange?: (cfi: string, progress: number) => void;
+  onSpineReady?: (hrefs: string[]) => void;
   initialCfi?: string;
 };
 
@@ -72,6 +84,12 @@ function buildHtml(
           }
         });
 
+        book.ready.then(function() {
+          var spineHrefs = [];
+          book.spine.each(function(item) { spineHrefs.push(item.href); });
+          sendMessage({ type: 'spine', hrefs: spineHrefs });
+        });
+
         rendition.display(${cfiParam} || undefined)
           .catch(function(err) {
             sendMessage({ type: 'error', message: 'display: ' + err });
@@ -95,6 +113,20 @@ function buildHtml(
         });
 
         window.__epubRendition = rendition;
+
+        window.__setFontSize = function(size) {
+          rendition.themes.default({
+            body: {
+              'font-size': size + 'px !important',
+              'color': '${textColor} !important',
+              'background': '${bg} !important',
+              'line-height': '1.65 !important',
+              'padding': '0 16px !important',
+            }
+          });
+        };
+
+
       } catch (err) {
         sendMessage({ type: 'error', message: String(err) });
       }
@@ -108,17 +140,21 @@ function buildHtml(
 </html>`;
 }
 
-export default function EpubReader({
-  epubUrl,
-  fontSize,
-  textColor,
-  bg,
-  onLocationChange,
-  initialCfi,
-}: Props) {
+const EpubReader = forwardRef<EpubReaderHandle, Props>(function EpubReader(
+  { epubUrl, fontSize, textColor, bg, onLocationChange, onSpineReady, initialCfi },
+  ref,
+) {
   const webViewRef = useRef<WebView>(null);
   const [error, setError] = useState<string | null>(null);
   const [localEpubUri, setLocalEpubUri] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    navigateTo(href: string) {
+      webViewRef.current?.injectJavaScript(
+        `if (window.__epubRendition) { window.__epubRendition.display(${JSON.stringify(href)}).catch(function(){}); } true;`,
+      );
+    },
+  }));
 
   useEffect(() => {
     if (!epubUrl) return;
@@ -145,6 +181,8 @@ export default function EpubReader({
         const msg = JSON.parse(e.nativeEvent.data);
         if (msg.type === "location" && onLocationChange) {
           onLocationChange(msg.cfi, msg.progress);
+        } else if (msg.type === "spine" && onSpineReady) {
+          onSpineReady(msg.hrefs);
         } else if (msg.type === "error") {
           setError(msg.message);
         }
@@ -152,17 +190,18 @@ export default function EpubReader({
         console.warn("EpubReader message parse failed", err);
       }
     },
-    [onLocationChange],
+    [onLocationChange, onSpineReady],
   );
 
-  // When fontSize changes, inject JS to update without full reload
   const prevFontSize = useRef(fontSize);
-  if (prevFontSize.current !== fontSize) {
-    prevFontSize.current = fontSize;
-    webViewRef.current?.injectJavaScript(
-      `window.__setFontSize(${fontSize}); true;`,
-    );
-  }
+  useEffect(() => {
+    if (prevFontSize.current !== fontSize) {
+      prevFontSize.current = fontSize;
+      webViewRef.current?.injectJavaScript(
+        `if (window.__setFontSize) { window.__setFontSize(${fontSize}); } true;`,
+      );
+    }
+  }, [fontSize]);
 
   if (error) {
     return (
@@ -185,9 +224,12 @@ export default function EpubReader({
   }
 
   const sourceUrl = localEpubUri ?? epubUrl;
-  const html = sourceUrl
-    ? buildHtml(sourceUrl, fontSize, textColor, bg, initialCfi)
-    : "";
+  // fontSize intentionally excluded — changes are applied via injectJavaScript
+  const html = React.useMemo(
+    () => (sourceUrl ? buildHtml(sourceUrl, fontSize, textColor, bg, initialCfi) : ""),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sourceUrl, textColor, bg, initialCfi],
+  );
 
   return (
     <View style={styles.container}>
@@ -213,7 +255,9 @@ export default function EpubReader({
       />
     </View>
   );
-}
+});
+
+export default EpubReader;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
